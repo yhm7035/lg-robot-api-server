@@ -8,17 +8,43 @@ const { firebaseDB } = require('../firesbase/database')
 router.post('/cluster/deploy', async function(req, res, next) {
   try {
     const { address, imageName, port, clusterName } = req.body
+    if (!address || !imageName || !port || !clusterName) {
+      console.log('error(at deploy): invalid parameter')
+      res.status(400).json({
+        statusCode: 400,
+        message: "error: invalid parameter"
+      })
+      return
+    }
+
     require('dotenv').config()
 
     const clusterList = await ainClient.getClusterList()
-    const targetCluster = clusterList.find(cluster => cluster.clusterName === clusterName)
+    const targetCluster = !!clusterList ? clusterList.find(cluster => cluster.clusterName === clusterName) : null
+    const targetPool = (!!targetCluster && !!targetCluster.nodePool) ? Object.keys(targetCluster.nodePool)[0] : null
 
-    const targetPool = Object.keys(targetCluster.nodePool)[0]
+    if (!targetPool) {
+      console.log('error(at deploy): insufficient resouce in machine')
+      res.status(503).json({
+        statusCode: 503,
+        message: "error: insufficient resouce in machine"
+      })
+      return
+    }
 
     let namespaceId
     if (!process.env.NAMESPACE) {
       namespaceResult = await _createNamespace(address, clusterName)
-      namespaceId = namespaceResult.result.namespaceId
+      namespaceId = !!namespaceResult ? namespaceResult.result.namespaceId : null
+
+      if (!namespaceId) {
+        console.log('error(at deploy): create namespace')
+        res.status(500).json({
+          statusCode: 500,
+          message: "error: create namespace"
+        })
+        return
+      }
     
       await fs.appendFile('.env', `NAMESPACE=${namespaceId}\n`, (err) => {
         if (err) throw err
@@ -64,19 +90,34 @@ router.post('/cluster/deploy', async function(req, res, next) {
 
     res.status(200).json(response)
   } catch (err) {
-    next(err)
+    console.log(`[error at deploy]\n${err}`)
+    res.status(500).send(err)
+    return
   }
 })
 
 router.post('/cluster/undeploy', async function(req, res, next) {
   try {
     const { address, containerId, clusterName } = req.body
+    if (!address || !containerId || !clusterName) {
+      console.log('error(at undeploy): invalid parameter')
+      res.status(400).json({
+        statusCode: 400,
+        message: "error: invalid parameter"
+      })
+      return
+    }
+
     require('dotenv').config()
   
     let namespaceId
     if (!process.env.NAMESPACE) {
-      const err = Error('nothing to undeploy: namespace does not exist')
-      throw err
+      console.log('error(at undeploy): no container to undeploy')
+      res.status(400).json({
+        statusCode: 400,
+        message: "error: no container to undeploy"
+      })
+      return
     } else {
       namespaceId = process.env.NAMESPACE
     }
@@ -95,13 +136,23 @@ router.post('/cluster/undeploy', async function(req, res, next) {
     const response = await ainClient.undeploy(deployParams)
     res.status(200).json(response)
   } catch (err) {
-    throw(err)
+    console.log(`[error at undeploy]\n${err}`)
+    res.status(500).send(err)
+    return
   }
 })
 
 router.post('/machine/deploy', async function(req, res, next) {
   try {
     const { address, imageName, clusterName } = req.body
+    if (!address || !imageName || !clusterName) {
+      console.log('error(at deploy): invalid parameter')
+      res.status(400).json({
+        statusCode: 400,
+        message: "error: invalid parameter"
+      })
+      return
+    }
 
     const deployParams = {
       clusterName,
@@ -129,14 +180,24 @@ router.post('/machine/deploy', async function(req, res, next) {
 
     res.status(200).json(response)
   } catch (err) {
-    next(err)
+    console.log(`[error at deploy]\n${err}`)
+    res.status(500).send(err)
+    return
   }
 })
 
 router.post('/machine/undeploy', async function(req, res, next) {
   try {
     const { address, containerId, clusterName } = req.body
-  
+    if (!address || !containerId || !clusterName) {
+      console.log('error(at undeploy): invalid parameter')
+      res.status(400).json({
+        statusCode: 400,
+        message: "error: invalid parameter"
+      })
+      return
+    }
+
     const deployParams = {
       clusterName,
       targetAddress: address,
@@ -150,7 +211,9 @@ router.post('/machine/undeploy', async function(req, res, next) {
     const response = await ainClient.undeployForDocker(deployParams)
     res.status(200).json(response)
   } catch (err) {
-    throw(err)
+    console.log(`[error at undeploy]\n${err}`)
+    res.status(500).send(err)
+    return
   }
 })
 
@@ -164,7 +227,7 @@ async function _createNamespace( address, clusterName ) {
     const response = await ainClient.createNamespace(namespaceParams)
     return response
   } catch (err) {
-    throw(err)
+    return null
   }
 }
 

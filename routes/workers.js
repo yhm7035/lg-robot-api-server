@@ -5,11 +5,14 @@ const { ainClient } = require('../ainetwork/ain-connect-sdk')
 router.get('/listMachines', async function(req, res, next) {
   try {
     const response = await ainClient.getClusterList()
-
     const workerList = []
 
     if (!response) {
-      res.status(400).send('error: get cluster list')
+      console.log('error(at listMachines): get cluster list')
+      res.status(500).json({
+        statusCode: 500,
+        message: "error: get cluster list"
+      })
       return
     }
 
@@ -29,7 +32,9 @@ router.get('/listMachines', async function(req, res, next) {
 
     res.status(200).json({ list: workerList })
   } catch (err) {
-    next(err)
+    console.log(`[error at listMachines]\n${err}`)
+    res.status(500).send(err)
+    return
   }
 })
 

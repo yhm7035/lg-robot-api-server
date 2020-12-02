@@ -7,6 +7,15 @@ router.get('/cluster/listContatinerInfo', async function(req, res, next) {
   try {
     const { address, clusterName } = req.query
 
+    if (!address || !clusterName) {
+      console.log('error(at listContatinerInfo): invalid parameter')
+      res.status(400).json({
+        statusCode: 400,
+        message: "error: invalid parameter"
+      })
+      return
+    }
+
     const ref = firebaseDB.ref(`api-server/${clusterName}@${address}/containers`)
     const containerInfoList = []
 
@@ -14,7 +23,11 @@ router.get('/cluster/listContatinerInfo', async function(req, res, next) {
     const containerList = await snapshot.val()
 
     if (!containerList) {
-      res.status(400).send('there is not any container to list')
+      console.log('error(at listContatinerInfo): no container')
+      res.status(404).json({
+        statusCode: 404,
+        message: "error: no container"
+      })
       return
     }
 
@@ -31,6 +44,8 @@ router.get('/cluster/listContatinerInfo', async function(req, res, next) {
 
       const result = await ainClient.getContainerStatus(params)
 
+      if (!result || !result.containerStatus || !containerList[key].info.image || !containerList[key].info.endpoint) continue
+
       containerInfoList.push({
         containerId: key,
         imageName: containerList[key].info.image,
@@ -41,13 +56,24 @@ router.get('/cluster/listContatinerInfo', async function(req, res, next) {
 
     res.status(200).json({ list: containerInfoList })
   } catch (err) {
-    next(err)
+    console.log(`[error at listContatinerInfo]\n${err}`)
+    res.status(500).send(err)
+    return
   }
 })
 
 router.get('/machine/listContatinerInfo', async function(req, res, next) { 
   try {
     const { address, clusterName } = req.query
+
+    if (!address || !clusterName) {
+      console.log('error(at listContatinerInfo): invalid parameter')
+      res.status(400).json({
+        statusCode: 400,
+        message: "error: invalid parameter"
+      })
+      return
+    }
 
     const ref = firebaseDB.ref(`api-server/${clusterName}@${address}/containers`)
     const containerInfoList = []
@@ -56,7 +82,11 @@ router.get('/machine/listContatinerInfo', async function(req, res, next) {
     const containerList = await snapshot.val()
 
     if (!containerList) {
-      res.status(400).send('there is not any container to list')
+      console.log('error(at listContatinerInfo): no container')
+      res.status(404).json({
+        statusCode: 404,
+        message: "error: no container"
+      })
       return
     }
 
@@ -73,16 +103,22 @@ router.get('/machine/listContatinerInfo', async function(req, res, next) {
 
       const result = await ainClient.getContainerStatusForDocker(params)
 
+      console.log(result)
+
+      if (!result || !result.params || !result.params.status || !containerList[key].info.image) continue
+
       containerInfoList.push({
         containerId: key,
         imageName: containerList[key].info.image,
-        status: result.containerStatus
+        status: result.params.status
       })
     }
 
     res.status(200).json({ list: containerInfoList })
   } catch (err) {
-    next(err)
+    console.log(`[error at listContatinerInfo]\n${err}`)
+    res.status(500).send(err)
+    return
   }
 })
 
