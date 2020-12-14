@@ -1,4 +1,4 @@
-const { Client }  = require('@aindev/connect-sdk')
+const { Client } = require('@aindev/connect-sdk')
 const firebaseConfig = require('../keys/lg-robot-firebase-config.json')
 
 const ainClient = new Client(

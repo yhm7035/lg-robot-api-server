@@ -3,7 +3,7 @@ const router = express.Router()
 const { ainClient } = require('../ainetwork/ain-connect-sdk')
 const { firebaseDB } = require('../firesbase/database')
 
-router.get('/cluster/listContatinerInfo', async function(req, res, next) { 
+router.get('/cluster/listContatinerInfo', async function (req, res) {
   try {
     const { address, clusterName } = req.query
 
@@ -11,7 +11,7 @@ router.get('/cluster/listContatinerInfo', async function(req, res, next) {
       console.log('error(at listContatinerInfo): invalid parameter')
       res.status(400).json({
         statusCode: 400,
-        message: "error: invalid parameter"
+        message: 'error: invalid parameter'
       })
       return
     }
@@ -26,7 +26,7 @@ router.get('/cluster/listContatinerInfo', async function(req, res, next) {
       console.log('error(at listContatinerInfo): no container')
       res.status(404).json({
         statusCode: 404,
-        message: "error: no container"
+        message: 'error: no container'
       })
       return
     }
@@ -58,11 +58,10 @@ router.get('/cluster/listContatinerInfo', async function(req, res, next) {
   } catch (err) {
     console.log(`[error at listContatinerInfo]\n${err}`)
     res.status(500).send(err)
-    return
   }
 })
 
-router.get('/machine/listContatinerInfo', async function(req, res, next) { 
+router.get('/machine/listContatinerInfo', async function (req, res, next) {
   try {
     const { address, clusterName } = req.query
 
@@ -70,7 +69,7 @@ router.get('/machine/listContatinerInfo', async function(req, res, next) {
       console.log('error(at listContatinerInfo): invalid parameter')
       res.status(400).json({
         statusCode: 400,
-        message: "error: invalid parameter"
+        message: 'error: invalid parameter'
       })
       return
     }
@@ -85,9 +84,8 @@ router.get('/machine/listContatinerInfo', async function(req, res, next) {
       console.log('error(at listContatinerInfo): no container')
       res.status(404).json({
         statusCode: 404,
-        message: "error: no container"
+        message: 'error: no container'
       })
-      return
     }
 
     const containerKeys = await Object.keys(containerList)
@@ -118,7 +116,6 @@ router.get('/machine/listContatinerInfo', async function(req, res, next) {
   } catch (err) {
     console.log(`[error at listContatinerInfo]\n${err}`)
     res.status(500).send(err)
-    return
   }
 })
 

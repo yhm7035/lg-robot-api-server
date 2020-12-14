@@ -5,14 +5,14 @@ const fs = require('fs')
 
 const { firebaseDB } = require('../firesbase/database')
 
-router.post('/cluster/deploy', async function(req, res, next) {
+router.post('/cluster/deploy', async function (req, res, next) {
   try {
     const { address, imageName, port, clusterName } = req.body
     if (!address || !imageName || !port || !clusterName) {
       console.log('error(at deploy): invalid parameter')
       res.status(400).json({
         statusCode: 400,
-        message: "error: invalid parameter"
+        message: 'error: invalid parameter'
       })
       return
     }
@@ -27,25 +27,25 @@ router.post('/cluster/deploy', async function(req, res, next) {
       console.log('error(at deploy): insufficient resouce in machine')
       res.status(503).json({
         statusCode: 503,
-        message: "error: insufficient resouce in machine"
+        message: 'error: insufficient resouce in machine'
       })
       return
     }
 
     let namespaceId
     if (!process.env.NAMESPACE) {
-      namespaceResult = await _createNamespace(address, clusterName)
+      const namespaceResult = await _createNamespace(address, clusterName)
       namespaceId = !!namespaceResult ? namespaceResult.result.namespaceId : null
 
       if (!namespaceId) {
         console.log('error(at deploy): create namespace')
         res.status(500).json({
           statusCode: 500,
-          message: "error: create namespace"
+          message: 'error: create namespace'
         })
         return
       }
-    
+
       await fs.appendFile('.env', `NAMESPACE=${namespaceId}\n`, (err) => {
         if (err) throw err
       })
@@ -65,7 +65,7 @@ router.post('/cluster/deploy', async function(req, res, next) {
           memory: 512,
           gpu: 0
         },
-        port: [ port ]
+        port: [port]
       }
     }
 
@@ -92,36 +92,35 @@ router.post('/cluster/deploy', async function(req, res, next) {
   } catch (err) {
     console.log(`[error at deploy]\n${err}`)
     res.status(500).send(err)
-    return
   }
 })
 
-router.post('/cluster/undeploy', async function(req, res, next) {
+router.post('/cluster/undeploy', async function (req, res, next) {
   try {
     const { address, containerId, clusterName } = req.body
     if (!address || !containerId || !clusterName) {
       console.log('error(at undeploy): invalid parameter')
       res.status(400).json({
         statusCode: 400,
-        message: "error: invalid parameter"
+        message: 'error: invalid parameter'
       })
       return
     }
 
     require('dotenv').config()
-  
+
     let namespaceId
     if (!process.env.NAMESPACE) {
       console.log('error(at undeploy): no container to undeploy')
       res.status(400).json({
         statusCode: 400,
-        message: "error: no container to undeploy"
+        message: 'error: no container to undeploy'
       })
       return
     } else {
       namespaceId = process.env.NAMESPACE
     }
-  
+
     const deployParams = {
       targetAddress: address,
       clusterName: clusterName,
@@ -129,27 +128,27 @@ router.post('/cluster/undeploy', async function(req, res, next) {
       containerId
     }
 
+    const response = await ainClient.undeploy(deployParams)
+
     const ref = firebaseDB.ref(`api-server/${clusterName}@${address}/containers`)
     const containerRef = ref.child(containerId)
     containerRef.remove()
-  
-    const response = await ainClient.undeploy(deployParams)
+
     res.status(200).json(response)
   } catch (err) {
     console.log(`[error at undeploy]\n${err}`)
     res.status(500).send(err)
-    return
   }
 })
 
-router.post('/machine/deploy', async function(req, res, next) {
+router.post('/machine/deploy', async function (req, res, next) {
   try {
     const { address, imageName, clusterName } = req.body
     if (!address || !imageName || !clusterName) {
       console.log('error(at deploy): invalid parameter')
       res.status(400).json({
         statusCode: 400,
-        message: "error: invalid parameter"
+        message: 'error: invalid parameter'
       })
       return
     }
@@ -182,18 +181,17 @@ router.post('/machine/deploy', async function(req, res, next) {
   } catch (err) {
     console.log(`[error at deploy]\n${err}`)
     res.status(500).send(err)
-    return
   }
 })
 
-router.post('/machine/undeploy', async function(req, res, next) {
+router.post('/machine/undeploy', async function (req, res, next) {
   try {
     const { address, containerId, clusterName } = req.body
     if (!address || !containerId || !clusterName) {
       console.log('error(at undeploy): invalid parameter')
       res.status(400).json({
         statusCode: 400,
-        message: "error: invalid parameter"
+        message: 'error: invalid parameter'
       })
       return
     }
@@ -204,20 +202,20 @@ router.post('/machine/undeploy', async function(req, res, next) {
       containerId
     }
 
+    const response = await ainClient.undeployForDocker(deployParams)
+
     const ref = firebaseDB.ref(`api-server/${clusterName}@${address}/containers`)
     const containerRef = ref.child(containerId)
     containerRef.remove()
-  
-    const response = await ainClient.undeployForDocker(deployParams)
+
     res.status(200).json(response)
   } catch (err) {
     console.log(`[error at undeploy]\n${err}`)
     res.status(500).send(err)
-    return
   }
 })
 
-async function _createNamespace( address, clusterName ) {
+async function _createNamespace (address, clusterName) {
   try {
     const namespaceParams = {
       targetAddress: address,
