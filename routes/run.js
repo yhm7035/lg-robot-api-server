@@ -3,7 +3,7 @@ const router = express.Router()
 const { ainClient } = require('../ainetwork/ain-connect-sdk')
 const fs = require('fs')
 
-const { firebaseDB } = require('../firesbase/database')
+const { firebaseDB } = require('../firesbase/firebase')
 
 router.post('/cluster/deploy', async function (req, res, next) {
   try {

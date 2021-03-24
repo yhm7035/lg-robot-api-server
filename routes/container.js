@@ -1,7 +1,7 @@
 const express = require('express')
 const router = express.Router()
 const { ainClient } = require('../ainetwork/ain-connect-sdk')
-const { firebaseDB } = require('../firesbase/database')
+const { firebaseDB } = require('../firesbase/firebase')
 
 router.get('/cluster/listContatinerInfo', async function (req, res) {
   try {
@@ -100,8 +100,6 @@ router.get('/machine/listContatinerInfo', async function (req, res, next) {
       }
 
       const result = await ainClient.getContainerStatusForDocker(params)
-
-      console.log(result)
 
       if (!result || !result.params || !result.params.status || !containerList[key].info.image) continue
 
