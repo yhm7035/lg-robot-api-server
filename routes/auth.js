@@ -34,11 +34,6 @@ router.post('/login', async function (req, res) {
         })
       } else {
         userData = await userDoc.data()
-
-        if (userData.permission) {
-          console.log('test')
-        }
-
         if (userData.permission) {
           // permissioned user
           const userInfo = {

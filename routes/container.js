@@ -86,6 +86,7 @@ router.get('/machine/listContatinerInfo', async function (req, res, next) {
         statusCode: 404,
         message: 'error: no container'
       })
+      return
     }
 
     const containerKeys = await Object.keys(containerList)
