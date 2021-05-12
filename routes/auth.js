@@ -33,7 +33,7 @@ router.post('/login', async function (req, res) {
           message: 'error: permission required'
         })
       } else {
-        userData = await userDoc.data()
+        const userData = await userDoc.data()
         if (userData.permission) {
           // permissioned user
           const userInfo = {

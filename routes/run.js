@@ -3,12 +3,14 @@ const router = express.Router()
 const { ainClient } = require('../ainetwork/ain-connect-sdk')
 const fs = require('fs')
 
+const { auth, firestore } = require('../firesbase/firebase-admin')
 const { firebaseDB } = require('../firesbase/firebase')
 
 router.post('/cluster/deploy', async function (req, res, next) {
   try {
-    const { address, imageName, port, clusterName } = req.body
-    if (!address || !imageName || !port || !clusterName) {
+    const { address, email, imageName, port, clusterName } = req.body
+  
+    if (!address || !imageName || !port || !clusterName || !email) {
       console.log('error(at deploy): invalid parameter')
       res.status(400).json({
         statusCode: 400,
@@ -17,7 +19,38 @@ router.post('/cluster/deploy', async function (req, res, next) {
       return
     }
 
-    require('dotenv').config()
+    const userRecord = await auth.getUserByEmail(email)
+    const userId = userRecord.uid
+
+    const userRef = firestore.collection('users').doc(userId)
+    const userDoc = await userRef.get()
+
+    let namespaceId
+    if (userDoc.exists) {
+      const userData = await userDoc.data()
+
+      if (!userData.namespaceId) {
+        const namespaceResult = await _createNamespace(address, clusterName)
+        namespaceId = !!namespaceResult ? namespaceResult.result.namespaceId : null
+
+        if (!namespaceId) {
+          console.log('error(at deploy): create namespace')
+          res.status(500).json({
+            statusCode: 500,
+            message: 'error: create namespace'
+          })
+          return
+        }
+
+        await userRef.update({
+          namespaceId
+        })
+      } else {
+        namespaceId = userData.namespaceId
+      }
+    } else {
+      // TODO: handle user existence error
+    }
 
     const clusterList = await ainClient.getClusterList()
     const targetCluster = !!clusterList ? clusterList.find(cluster => cluster.clusterName === clusterName) : null
@@ -32,27 +65,6 @@ router.post('/cluster/deploy', async function (req, res, next) {
       return
     }
 
-    let namespaceId
-    if (!process.env.NAMESPACE) {
-      const namespaceResult = await _createNamespace(address, clusterName)
-      namespaceId = !!namespaceResult ? namespaceResult.result.namespaceId : null
-
-      if (!namespaceId) {
-        console.log('error(at deploy): create namespace')
-        res.status(500).json({
-          statusCode: 500,
-          message: 'error: create namespace'
-        })
-        return
-      }
-
-      await fs.appendFile('.env', `NAMESPACE=${namespaceId}\n`, (err) => {
-        if (err) throw err
-      })
-    } else {
-      namespaceId = process.env.NAMESPACE
-    }
-
     const deployParams = {
       targetAddress: address,
       clusterName: clusterName,
@@ -65,7 +77,7 @@ router.post('/cluster/deploy', async function (req, res, next) {
           memory: 512,
           gpu: 0
         },
-        port: [port]
+        port
       }
     }
 
@@ -79,13 +91,23 @@ router.post('/cluster/deploy', async function (req, res, next) {
       throw err
     }
 
+    if (!response.result.containerId) {
+      // TODO: making container error
+    }
+
     const ref = firebaseDB.ref(`api-server/${clusterName}@${address}/containers`)
     const containerRef = ref.child(response.result.containerId)
+    
     containerRef.set({
       info: {
         image: imageName,
-        endpoint: response.result.endpoint[port]
+        endpoint: response.result.endpoint
       }
+    })
+
+    const deploymentRef = firestore.collection(`users/${userId}/deployment`).doc(`${response.result.containerId}`)
+    deploymentRef.set({
+      ...response.result
     })
 
     res.status(200).json(response)
@@ -97,8 +119,9 @@ router.post('/cluster/deploy', async function (req, res, next) {
 
 router.post('/cluster/undeploy', async function (req, res, next) {
   try {
-    const { address, containerId, clusterName } = req.body
-    if (!address || !containerId || !clusterName) {
+    const { address, email, containerId, clusterName } = req.body
+
+    if (!address || !containerId || !clusterName || !email) {
       console.log('error(at undeploy): invalid parameter')
       res.status(400).json({
         statusCode: 400,
@@ -107,18 +130,18 @@ router.post('/cluster/undeploy', async function (req, res, next) {
       return
     }
 
-    require('dotenv').config()
+    const userRecord = await auth.getUserByEmail(email)
+    const userId = userRecord.uid
+
+    const userRef = firestore.collection('users').doc(userId)
+    const userDoc = await userRef.get()
 
     let namespaceId
-    if (!process.env.NAMESPACE) {
-      console.log('error(at undeploy): no container to undeploy')
-      res.status(400).json({
-        statusCode: 400,
-        message: 'error: no container to undeploy'
-      })
-      return
+    if (userDoc.exists) {
+      const userData = await userDoc.data()
+      namespaceId = userData.namespaceId
     } else {
-      namespaceId = process.env.NAMESPACE
+      // TODO: handle user existence error
     }
 
     const deployParams = {
@@ -134,6 +157,9 @@ router.post('/cluster/undeploy', async function (req, res, next) {
     const containerRef = ref.child(containerId)
     containerRef.remove()
 
+    const deploymentRef = firestore.collection(`users/${userId}/deployment`).doc(containerId)
+    deploymentRef.delete()
+
     res.status(200).json(response)
   } catch (err) {
     console.log(`[error at undeploy]\n${err}`)
@@ -143,7 +169,7 @@ router.post('/cluster/undeploy', async function (req, res, next) {
 
 router.post('/machine/deploy', async function (req, res, next) {
   try {
-    const { address, imageName, clusterName } = req.body
+    const { address, session, imageName, clusterName } = req.body
     if (!address || !imageName || !clusterName) {
       console.log('error(at deploy): invalid parameter')
       res.status(400).json({

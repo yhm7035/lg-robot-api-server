@@ -46,11 +46,15 @@ router.get('/cluster/listContatinerInfo', async function (req, res) {
 
       if (!result || !result.containerStatus || !containerList[key].info.image || !containerList[key].info.endpoint) continue
 
-      containerInfoList.push({
-        containerId: key,
-        imageName: containerList[key].info.image,
-        status: result.containerStatus,
-        endpoint: containerList[key].info.endpoint
+      const portKeys = await Object.keys(containerList[key].info.endpoint)
+
+      portKeys.forEach(element => {
+        containerInfoList.push({
+          containerId: key,
+          imageName: containerList[key].info.image,
+          status: result.containerStatus,
+          endpoint: containerList[key].info.endpoint[element]
+        })
       })
     }
 
