@@ -6,7 +6,7 @@
     "start": "node ./bin/www"
   },
   "dependencies": {
-    "@aindev/connect-sdk": "^0.1.16",
+    "@aindev/connect-sdk": "^0.1.23",
     "cookie-parser": "~1.4.4",
     "debug": "~2.6.9",
     "dotenv": "^8.2.0",
@@ -16,8 +16,10 @@
     "firebase-admin": "^9.4.1",
     "fs": "^0.0.1-security",
     "http-errors": "~1.6.3",
+    "i": "^0.3.6",
     "jade": "~1.11.0",
-    "morgan": "~1.9.1"
+    "morgan": "~1.9.1",
+    "npm": "^7.15.1"
   },
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^4.9.1",

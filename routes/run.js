@@ -144,14 +144,14 @@ router.post('/cluster/undeploy', async function (req, res, next) {
       // TODO: handle user existence error
     }
 
-    const deployParams = {
+    const unDeployParams = {
       targetAddress: address,
       clusterName: clusterName,
       namespaceId,
       containerId
     }
 
-    const response = await ainClient.undeploy(deployParams)
+    const response = await ainClient.undeploy(unDeployParams)
 
     const ref = firebaseDB.ref(`api-server/${clusterName}@${address}/containers`)
     const containerRef = ref.child(containerId)
@@ -169,8 +169,11 @@ router.post('/cluster/undeploy', async function (req, res, next) {
 
 router.post('/machine/deploy', async function (req, res, next) {
   try {
-    const { address, session, imageName, clusterName } = req.body
-    if (!address || !imageName || !clusterName) {
+    const { address, email, imageName, isHost = false, ports, clusterName } = req.body
+
+    console.log(req.body)
+    
+    if (!address || !email || !imageName || !ports || !clusterName) {
       console.log('error(at deploy): invalid parameter')
       res.status(400).json({
         statusCode: 400,
@@ -179,7 +182,19 @@ router.post('/machine/deploy', async function (req, res, next) {
       return
     }
 
+    const userRecord = await auth.getUserByEmail(email)
+    const userId = userRecord.uid
+
+    let portsJson = {}
+    if (!isHost) {
+      ports.forEach(port => {
+        portsJson[port] = port.toString()
+      })
+    }
+
     const deployParams = {
+      // port check
+      publishPorts: isHost ? null : portsJson,
       clusterName,
       targetAddress: address,
       image: `robot-registry.ainize.ai/${imageName}`
@@ -195,12 +210,25 @@ router.post('/machine/deploy', async function (req, res, next) {
       throw err
     }
 
+    if (!response.result.containerId) {
+      // TODO: making container error
+    }
+
     const ref = firebaseDB.ref(`api-server/${clusterName}@${address}/containers`)
     const containerRef = ref.child(response.result.containerId)
     containerRef.set({
       info: {
         image: imageName
       }
+    })
+
+    console.log(response)
+
+    const deploymentRef = firestore.collection(`users/${userId}/deployment`).doc(`${response.result.containerId}`)
+    deploymentRef.set({
+      clusterName,
+      port: portsJson,
+      ...response.result
     })
 
     res.status(200).json(response)
@@ -212,8 +240,9 @@ router.post('/machine/deploy', async function (req, res, next) {
 
 router.post('/machine/undeploy', async function (req, res, next) {
   try {
-    const { address, containerId, clusterName } = req.body
-    if (!address || !containerId || !clusterName) {
+    const { address, email, containerId, clusterName } = req.body
+
+    if (!address || !email || !containerId || !clusterName) {
       console.log('error(at undeploy): invalid parameter')
       res.status(400).json({
         statusCode: 400,
@@ -222,17 +251,23 @@ router.post('/machine/undeploy', async function (req, res, next) {
       return
     }
 
-    const deployParams = {
+    const userRecord = await auth.getUserByEmail(email)
+    const userId = userRecord.uid
+
+    const unDeployParams = {
       clusterName,
       targetAddress: address,
       containerId
     }
 
-    const response = await ainClient.undeployForDocker(deployParams)
+    const response = await ainClient.undeployForDocker(unDeployParams)
 
     const ref = firebaseDB.ref(`api-server/${clusterName}@${address}/containers`)
     const containerRef = ref.child(containerId)
     containerRef.remove()
+
+    const deploymentRef = firestore.collection(`users/${userId}/deployment`).doc(containerId)
+    deploymentRef.delete()
 
     res.status(200).json(response)
   } catch (err) {
