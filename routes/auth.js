@@ -10,64 +10,64 @@ router.post('/login', async function (req, res) {
 
   try {
     await createSessionCookie(idToken, cookieExpiresIn)
-    .then(async (sessionCookie) => {
-      // checkRevoked
-      const userJwt = await auth.verifySessionCookie(sessionCookie, true)
+      .then(async (sessionCookie) => {
+        // checkRevoked
+        const userJwt = await auth.verifySessionCookie(sessionCookie, true)
 
-      const userId = userJwt.user_id
-      const userRef = firestore.collection('users').doc(userId)
-      const userDoc = await userRef.get()
+        const userId = userJwt.user_id
+        const userRef = firestore.collection('users').doc(userId)
+        const userDoc = await userRef.get()
 
-      if (!userDoc.exists) {
-        const userInfo = {
-          email: userJwt.email,
-          permission: false,
-          org: null,
-          signInDate: new Date().toISOString()
-        }
-
-        await userRef.set(userInfo)
-
-        res.status(400).json({
-          statusCode: 400,
-          message: 'error: permission required'
-        })
-      } else {
-        const userData = await userDoc.data()
-        if (userData.permission) {
-          // permissioned user
+        if (!userDoc.exists) {
           const userInfo = {
-            email: userData.email,
-            org: userData.org,
-            signInDate: userData.signInDate
+            email: userJwt.email,
+            permission: false,
+            org: null,
+            signInDate: new Date().toISOString()
           }
 
-          const cookieOptions = {
-            maxAge: cookieExpiresIn,
-            httpOnly: false,
-            // secure: true,
-          }
+          await userRef.set(userInfo)
 
-          res.status(200).json({
-            sessionCookie,
-            cookieOptions,
-            userInfo
-          })
-        } else {
           res.status(400).json({
             statusCode: 400,
-            message: 'error: permission required'
+            message: 'Error: permission required.'
           })
+        } else {
+          const userData = await userDoc.data()
+          if (userData.permission) {
+            // permissioned user
+            const userInfo = {
+              email: userData.email,
+              org: userData.org,
+              signInDate: userData.signInDate
+            }
+
+            const cookieOptions = {
+              maxAge: cookieExpiresIn,
+              httpOnly: false,
+              // secure: true,
+            }
+
+            res.status(200).json({
+              sessionCookie,
+              cookieOptions,
+              userInfo
+            })
+          } else {
+            res.status(400).json({
+              statusCode: 400,
+              message: 'Error: permission required.'
+            })
+          }
         }
-      }
-    })
+      })
   } catch (err) {
-    console.log(`[error at login]\n${err}`)
+    console.log(`Error: POST /login.\n${err}`)
     res.status(500).send(err)
   }
 })
 
-router.post('/verifyCookie', async function (req, res, next) {
+router.post('/verifyCookie', async function (req, res) {
   try {
     const { session } = req.body
 
@@ -80,11 +80,11 @@ router.post('/verifyCookie', async function (req, res, next) {
       .catch(_ => {
         res.status(400).json({
           status: 'invalid',
-          message: 'error: invalid session cookie'
+          message: 'Error: Invalid session cookie.'
         })
       })
   } catch (err) {
-    console.log(`[error at verifying cookie]\n${err}`)
+    console.log(`Error: POST /verifyCookie.\n${err}`)
     res.status(500).send(err)
   }
 })
