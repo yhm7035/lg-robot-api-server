@@ -1,8 +1,8 @@
-const { createSessionCookie, generateToken } = require('./auth.internal')
-const { auth, firestore } = require('../firesbase/firebase-admin')
 const express = require('express')
 const router = express.Router()
 
+const { auth, firestore } = require('../firesbase/firebase-admin')
+const { createSessionCookie, generateToken } = require('./auth.internal')
 const { loginBodyValidator } = require('../middlewares/paramsValidator')
 const { verifyToken } = require('../middlewares/auth')
 
@@ -69,7 +69,7 @@ router.post('/login', [verifyToken, loginBodyValidator], async function (req, re
               org: userData.org,
               signInDate: userData.signInDate
             }
-            
+
             // TODO: check cookie options
             const cookieOptions = {
               maxAge: cookieExpiresIn,

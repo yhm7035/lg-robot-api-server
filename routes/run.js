@@ -1,11 +1,12 @@
 const express = require('express')
 const router = express.Router()
-const { ainClient } = require('../ainetwork/ain-connect-sdk')
 
+const { ainClient } = require('../ainetwork/ain-connect-sdk')
 const { auth, firestore } = require('../firesbase/firebase-admin')
 const { firebaseDB } = require('../firesbase/firebase')
+const { verifyToken } = require('../middlewares/auth')
 
-router.post('/cluster/deploy', async function (req, res, next) {
+router.post('/cluster/deploy', verifyToken, async function (req, res, next) {
   try {
     const { address, email, imageName, port, clusterName, command, envs } = req.body
 
@@ -123,7 +124,7 @@ router.post('/cluster/deploy', async function (req, res, next) {
   }
 })
 
-router.post('/cluster/undeploy', async function (req, res, next) {
+router.post('/cluster/undeploy', verifyToken, async function (req, res, next) {
   try {
     const { address, email, containerId, clusterName } = req.body
 
@@ -172,7 +173,7 @@ router.post('/cluster/undeploy', async function (req, res, next) {
   }
 })
 
-router.post('/machine/deploy', async function (req, res, next) {
+router.post('/machine/deploy', verifyToken, async function (req, res, next) {
   try {
     const { address, email, imageName, isHost = false, ports, clusterName, command, envs } = req.body
 
@@ -249,7 +250,7 @@ router.post('/machine/deploy', async function (req, res, next) {
   }
 })
 
-router.post('/machine/undeploy', async function (req, res, next) {
+router.post('/machine/undeploy', verifyToken, async function (req, res, next) {
   try {
     const { address, email, containerId, clusterName } = req.body
 

@@ -1,6 +1,7 @@
-const { auth } = require('../firesbase/firebase-admin')
 const jwt = require('jsonwebtoken')
 const crypto = require('crypto')
+
+const { auth } = require('../firesbase/firebase-admin')
 
 const createSessionCookie = async (idToken, expiresIn) => {
   return auth.createSessionCookie(idToken, { expiresIn })
