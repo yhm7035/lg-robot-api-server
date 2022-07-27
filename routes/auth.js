@@ -1,12 +1,40 @@
-const { createSessionCookie } = require('./auth.internal')
+const { createSessionCookie, generateToken } = require('./auth.internal')
 const { auth, firestore } = require('../firesbase/firebase-admin')
 const express = require('express')
 const router = express.Router()
 
+const { loginBodyValidator } = require('../middlewares/paramsValidator')
+const { verifyToken } = require('../middlewares/auth')
+
 const cookieExpiresIn = 60 * 60 * 24 * 7 * 1000
 
-router.post('/login', async function (req, res) {
-  const idToken = req.body.idToken
+router.get('/generateToken', verifyToken, function (req, res) {
+  try {
+    const { tokenName } = req.query
+
+    if (!tokenName) {
+      res.status(400).json({
+        statusCode: 400,
+        message: 'Error: Invalid parameter.\nName of token(tokenName) is required'
+      })
+      return
+    }
+
+    const { tempKey, token } = generateToken(tokenName)
+
+    res.status(200).json({
+      tokenName,
+      tempKey,
+      token
+    })
+  } catch (err) {
+    console.log(`Error: GET /listImages.\n${err}`)
+    res.status(500).send(err)
+  }
+})
+
+router.post('/login', [verifyToken, loginBodyValidator], async function (req, res) {
+  const idToken = req.body
 
   try {
     await createSessionCookie(idToken, cookieExpiresIn)
@@ -41,11 +69,12 @@ router.post('/login', async function (req, res) {
               org: userData.org,
               signInDate: userData.signInDate
             }
-
+            
+            // TODO: check cookie options
             const cookieOptions = {
               maxAge: cookieExpiresIn,
-              httpOnly: false,
-              // secure: true,
+              httpOnly: true,
+              secure: true,
             }
 
             res.status(200).json({
@@ -67,7 +96,7 @@ router.post('/login', async function (req, res) {
   }
 })
 
-router.post('/verifyCookie', async function (req, res) {
+router.post('/verifyCookie', verifyToken, async function (req, res) {
   try {
     const { session } = req.body
 

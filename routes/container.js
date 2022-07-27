@@ -2,8 +2,9 @@ const express = require('express')
 const router = express.Router()
 const { ainClient } = require('../ainetwork/ain-connect-sdk')
 const { firebaseDB } = require('../firesbase/firebase')
+const { verifyToken } = require('../middlewares/auth')
 
-router.get('/cluster/listContatinerInfo', async function (req, res) {
+router.get('/cluster/listContatinerInfo', verifyToken, async function (req, res) {
   try {
     const { address, clusterName } = req.query
 
@@ -63,7 +64,7 @@ router.get('/cluster/listContatinerInfo', async function (req, res) {
   }
 })
 
-router.get('/machine/listContatinerInfo', async function (req, res) {
+router.get('/machine/listContatinerInfo', verifyToken, async function (req, res) {
   try {
     const { address, clusterName } = req.query
 

@@ -1,8 +1,9 @@
 const express = require('express')
 const router = express.Router()
 const { ainClient } = require('../ainetwork/ain-connect-sdk')
+const { verifyToken } = require('../middlewares/auth')
 
-router.get('/listMachines', async function (req, res, next) {
+router.get('/listMachines', verifyToken, async function (req, res, next) {
   try {
     const response = await ainClient.getClusterList()
     const workerList = []
