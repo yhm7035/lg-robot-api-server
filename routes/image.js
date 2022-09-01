@@ -36,7 +36,8 @@ router.get('/imageTags', verifyToken, async function (req, res, next) {
     }
 
     // check existence of image in registry
-    const imageRef = firestore.collection('images').doc(imageName)
+    const replacedName = imageName.replaceAll('/', '#')
+    const imageRef = firestore.collection('images').doc(replacedName)
     const imageDoc = await imageRef.get()
     if (!imageDoc.exists) {
       res.status(400).json({
@@ -48,7 +49,7 @@ router.get('/imageTags', verifyToken, async function (req, res, next) {
     }
 
     // get tags(collections) of the image
-    const collections = await firestore.collection('images').doc(imageName).listCollections()
+    const collections = await firestore.collection('images').doc(replacedName).listCollections()
     const collectionList = []
     for (const collection of collections) {
       collectionList.push(collection.id)

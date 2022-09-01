@@ -11,6 +11,7 @@ const containerRouter = require('./routes/container')
 const authRouter = require('./routes/auth')
 const imageRouter = require('./routes/image')
 const metadataRouter = require('./routes/metadata')
+const ideRouter = require('./routes/ide')
 
 const app = express()
 
@@ -31,6 +32,7 @@ app.use('/container', containerRouter)
 app.use('/auth', authRouter)
 app.use('/image', imageRouter)
 app.use('/metadata', metadataRouter)
+app.use('/ide', ideRouter)
 
 // catch 404 and forward to error handler
 app.use(function(req, res, next) {

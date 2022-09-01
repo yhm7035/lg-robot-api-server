@@ -69,7 +69,7 @@ router.post('/cluster/deploy', verifyToken, async function (req, res, next) {
       clusterName: clusterName,
       namespaceId: namespaceId,
       containerInfo: {
-        imageName: `robot-registry.ainize.ai/${imageName}`,
+        imageName: `asia-northeast1-docker.pkg.dev/lg-robot-dev/lg-ai-registry/${imageName}`,
         nodePoolName: targetPool,
         hwSpec: {
           cpu: 500,
@@ -201,7 +201,7 @@ router.post('/machine/deploy', verifyToken, async function (req, res, next) {
       publishPorts: isHost ? null : portsJson,
       clusterName,
       targetAddress: address,
-      image: `robot-registry.ainize.ai/${imageName}`
+      image: `asia-northeast1-docker.pkg.dev/lg-robot-dev/lg-ai-registry/${imageName}`
     }
 
     if (command) deployParams.command = [command]

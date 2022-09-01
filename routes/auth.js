@@ -34,7 +34,7 @@ router.get('/generateToken', verifyToken, function (req, res) {
 })
 
 router.post('/login', [verifyToken, loginBodyValidator], async function (req, res) {
-  const idToken = req.body
+  const idToken = req.body.idToken
 
   try {
     await createSessionCookie(idToken, cookieExpiresIn)
@@ -73,8 +73,8 @@ router.post('/login', [verifyToken, loginBodyValidator], async function (req, re
             // TODO: check cookie options
             const cookieOptions = {
               maxAge: cookieExpiresIn,
-              httpOnly: true,
-              secure: true,
+              // httpOnly: true,
+              // secure: true,
             }
 
             res.status(200).json({
