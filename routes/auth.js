@@ -74,7 +74,7 @@ router.post('/login', [verifyToken, loginBodyValidator], async function (req, re
             const cookieOptions = {
               maxAge: cookieExpiresIn,
               httpOnly: true,
-              secure: true,
+              // secure: true,
             }
 
             res.status(200).json({
