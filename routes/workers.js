@@ -1,17 +1,18 @@
 const express = require('express')
 const router = express.Router()
-const { ainClient } = require('../ainetwork/ain-connect-sdk')
 
-router.get('/listMachines', async function (req, res, next) {
+const { ainClient } = require('../ainetwork/ain-connect-sdk')
+const { verifyToken } = require('../middlewares/auth')
+
+router.get('/listMachines', verifyToken, async function (req, res, next) {
   try {
     const response = await ainClient.getClusterList()
     const workerList = []
 
     if (!response) {
-      console.log('error(at listMachines): get cluster list')
       res.status(500).json({
         statusCode: 500,
-        message: 'error: get cluster list'
+        message: 'Error: Get list of clusters.'
       })
       return
     }
@@ -25,14 +26,14 @@ router.get('/listMachines', async function (req, res, next) {
 
       workerList.push({
         address: info.address,
-        name: !!info.clusterName ? info.clusterName : '',
+        name: info.clusterName ? info.clusterName : '',
         platform: info.isDocker ? 'docker' : 'kubernetes'
       })
     }
 
     res.status(200).json({ list: workerList })
   } catch (err) {
-    console.log(`[error at listMachines]\n${err}`)
+    console.log(`Error: POST /listMachines.\n${err}`)
     res.status(500).send(err)
   }
 })

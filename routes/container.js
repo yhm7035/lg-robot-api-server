@@ -1,17 +1,18 @@
 const express = require('express')
 const router = express.Router()
+
 const { ainClient } = require('../ainetwork/ain-connect-sdk')
 const { firebaseDB } = require('../firesbase/firebase')
+const { verifyToken } = require('../middlewares/auth')
 
-router.get('/cluster/listContatinerInfo', async function (req, res) {
+router.get('/cluster/listContatinerInfo', verifyToken, async function (req, res) {
   try {
     const { address, clusterName } = req.query
 
     if (!address || !clusterName) {
-      console.log('error(at listContatinerInfo): invalid parameter')
       res.status(400).json({
         statusCode: 400,
-        message: 'error: invalid parameter'
+        message: 'Error: Invalid parameter.'
       })
       return
     }
@@ -23,10 +24,9 @@ router.get('/cluster/listContatinerInfo', async function (req, res) {
     const containerList = await snapshot.val()
 
     if (!containerList) {
-      console.log('error(at listContatinerInfo): no container')
       res.status(404).json({
         statusCode: 404,
-        message: 'error: no container'
+        message: 'Error: No container.'
       })
       return
     }
@@ -60,20 +60,19 @@ router.get('/cluster/listContatinerInfo', async function (req, res) {
 
     res.status(200).json({ list: containerInfoList })
   } catch (err) {
-    console.log(`[error at listContatinerInfo]\n${err}`)
+    console.log(`Error: POST /cluster/listContatinerInfo.\n${err}`)
     res.status(500).send(err)
   }
 })
 
-router.get('/machine/listContatinerInfo', async function (req, res, next) {
+router.get('/machine/listContatinerInfo', verifyToken, async function (req, res) {
   try {
     const { address, clusterName } = req.query
 
     if (!address || !clusterName) {
-      console.log('error(at listContatinerInfo): invalid parameter')
       res.status(400).json({
         statusCode: 400,
-        message: 'error: invalid parameter'
+        message: 'Error: Invalid parameter.'
       })
       return
     }
@@ -85,10 +84,9 @@ router.get('/machine/listContatinerInfo', async function (req, res, next) {
     const containerList = await snapshot.val()
 
     if (!containerList) {
-      console.log('error(at listContatinerInfo): no container')
       res.status(404).json({
         statusCode: 404,
-        message: 'error: no container'
+        message: 'Error: No container.'
       })
       return
     }
@@ -117,7 +115,7 @@ router.get('/machine/listContatinerInfo', async function (req, res, next) {
 
     res.status(200).json({ list: containerInfoList })
   } catch (err) {
-    console.log(`[error at listContatinerInfo]\n${err}`)
+    console.log(`Error: POST /machine/listContatinerInfo.\n${err}`)
     res.status(500).send(err)
   }
 })
