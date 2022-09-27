@@ -21,14 +21,16 @@ router.post('/cluster/deploy', verifyToken, async function (req, res, next) {
     const userRecord = await auth.getUserByEmail(email)
     const userId = userRecord.uid
 
+    // TODO: user reference is only used for user existence check(have to improve)
     const userRef = firestore.collection('users').doc(userId)
     const userDoc = await userRef.get()
 
     let namespaceId
     if (userDoc.exists) {
-      const userData = await userDoc.data()
+      const userNamespaceRef = firestore.collection(`users/${userId}/namespace`).doc(`${clusterName}@${address}`)
+      const userNamespaceDoc = await userNamespaceRef.get()
 
-      if (!userData.namespaceId) {
+      if (!userNamespaceDoc.exists) {
         const namespaceResult = await _createNamespace(address, clusterName)
         namespaceId = namespaceResult ? namespaceResult.result.namespaceId : null
 
@@ -41,11 +43,12 @@ router.post('/cluster/deploy', verifyToken, async function (req, res, next) {
           return
         }
 
-        await userRef.update({
+        await userNamespaceRef.set({
           namespaceId
         })
       } else {
-        namespaceId = userData.namespaceId
+        const userNamespaceData = await userNamespaceDoc.data()
+        namespaceId = userNamespaceData.namespaceId
       }
     } else {
       // TODO: handle user existence error
@@ -139,13 +142,14 @@ router.post('/cluster/undeploy', verifyToken, async function (req, res, next) {
     const userRecord = await auth.getUserByEmail(email)
     const userId = userRecord.uid
 
-    const userRef = firestore.collection('users').doc(userId)
-    const userDoc = await userRef.get()
+    const userNamespaceRef = firestore.collection(`users/${userId}/namespace`).doc(`${clusterName}@${address}`)
+    const userNamespaceDoc = await userNamespaceRef.get()
 
     let namespaceId
-    if (userDoc.exists) {
-      const userData = await userDoc.data()
-      namespaceId = userData.namespaceId
+    // only deployer can delete deployment
+    if (userNamespaceDoc.exists) {
+      const userNamespaceData = await userNamespaceDoc.data()
+      namespaceId = userNamespaceData.namespaceId
     } else {
       // TODO: handle user existence error
     }
@@ -177,7 +181,7 @@ router.post('/machine/deploy', verifyToken, async function (req, res, next) {
   try {
     const { address, email, imageName, isHost = false, ports, clusterName, command, envs } = req.body
 
-    if (!address || !email || !imageName || !clusterName) {
+    if (!address || !email || !imageName || !ports || !clusterName) {
       console.log('Error: POST /machine/deploy. Invalid parameter.')
       res.status(400).json({
         statusCode: 400,

@@ -22,16 +22,16 @@ router.post('/cluster/deploy', verifyToken, async function (req, res, next) {
     const tokenRef = firestore.collection('tokens').doc(tokenName)
     const tokenDoc = await tokenRef.get()
     
-    let namespaceId
-
     if (!tokenDoc.exists) {
       await tokenRef.set({
         registerDate: new Date().toISOString()
       })
     }
-    
-    const tokenData = await tokenDoc.data()
-    if (!tokenData.namespaceId) {
+
+    let namespaceId
+    const tokenNamespaceRef = firestore.collection(`tokens/${tokenName}/namespace`).doc(`${clusterName}@${address}`)
+    const tokenNamespaceDoc = await tokenNamespaceRef.get()    
+    if (!tokenNamespaceDoc.exists) {
       const namespaceResult = await _createNamespace(address, clusterName)
       namespaceId = namespaceResult ? namespaceResult.result.namespaceId : null
 
@@ -45,11 +45,12 @@ router.post('/cluster/deploy', verifyToken, async function (req, res, next) {
         return
       }
 
-      await tokenRef.update({
+      await tokenNamespaceRef.set({
         namespaceId
       })
     } else {
-      namespaceId = tokenData.namespaceId
+      const tokenNamespaceData = await tokenNamespaceDoc.data()
+      namespaceId = tokenNamespaceData.namespaceId
     }
 
     const clusterList = await ainClient.getClusterList()
@@ -121,6 +122,79 @@ router.post('/cluster/deploy', verifyToken, async function (req, res, next) {
     res.status(500).send(err)
   }
 })
+
+router.post('/machine/deploy', verifyToken, async function (req, res, next) {
+  try {
+    const { address, imageName, isHost = false, ports, clusterName, command, envs } = req.body
+
+    if (!address || !imageName || !ports || !clusterName) {
+      console.log('Error: POST /machine/deploy. Invalid parameter.')
+      res.status(400).json({
+        statusCode: 400,
+        message: 'Error: Invalid parameter.'
+      })
+      return
+    }
+
+    // TODO: have to write deployment record to DB
+    // const tokenName = req.header('tokenName')
+    // const tokenRef = firestore.collection('tokens').doc(tokenName)
+    // const tokenDoc = await tokenRef.get()
+
+    const portsJson = {}
+    if (!isHost) {
+      ports.forEach(port => {
+        portsJson[port] = port.toString()
+      })
+    }
+
+    const deployParams = {
+      // port check
+      publishPorts: isHost ? null : portsJson,
+      clusterName,
+      targetAddress: address,
+      image: `asia-northeast1-docker.pkg.dev/lg-robot-dev/lg-ai-registry/${imageName}`
+    }
+
+    if (command) deployParams.command = [command]
+    if (envs) {
+      const keys = Object.keys(envs)
+      if (keys.length > 0) {
+        keys.forEach(key => {
+          if (typeof envs[key] !== 'string') {
+            envs[key] = String(envs[key])
+          }
+        })
+        deployParams.env = envs
+      }
+    }
+
+    const response = await ainClient.deployForDocker(deployParams)
+
+    if (response && response.errMessage) {
+      res.status(400).json({
+        statusCode: 400,
+        message: response.errMessage
+      })
+      return
+    }
+
+    const ref = firebaseDB.ref(`api-server/${clusterName}@${address}/containers`)
+    const containerRef = ref.child(response.result.containerId)
+
+    containerRef.set({
+      info: {
+        image: imageName
+      }
+    })
+
+    res.status(200).json(response)
+  } catch (err) {
+    console.log(`Error: POST /machine/deploy.\n${err}`)
+    res.status(500).send(err)
+  }
+})
+
 
 async function _createNamespace (address, clusterName) {
   try {
