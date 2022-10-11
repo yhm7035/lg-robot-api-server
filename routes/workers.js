@@ -20,6 +20,8 @@ router.get('/listMachines', verifyToken, async function (req, res, next) {
     for (let i = 0; i < response.length; i++) {
       const info = response[i]
 
+      if (info.hasOwnProperty('isDocker') === false) continue
+
       if (!info.address) {
         continue
       }

@@ -4,7 +4,7 @@ const router = express.Router()
 const { firestore } = require('../firesbase/firebase-admin')
 const { verifyToken } = require('../middlewares/auth')
 
-router.get('/getMetadata', verifyToken, async function (req, res, next) {
+router.get('/getInformationModel', verifyToken, async function (req, res, next) {
   try {
     let { imageName, imageTag } = req.query
 
@@ -33,12 +33,12 @@ router.get('/getMetadata', verifyToken, async function (req, res, next) {
       })
     }
   } catch (err) {
-    console.log(`Error: GET /getMetadata.\n${err}`)
+    console.log(`Error: GET /getInformationModel.\n${err}`)
     res.status(500).send(err)
   }
 })
 
-router.post('/setMetadata', verifyToken, async function (req, res, next) {
+router.post('/setInformationModel', verifyToken, async function (req, res, next) {
   try {
     let { imageName, imageTag, metadata, overwrite } = req.body
 
@@ -86,7 +86,7 @@ router.post('/setMetadata', verifyToken, async function (req, res, next) {
       }
     }
   } catch (err) {
-    console.log(`Error: POST /setMetadata.\n${err}`)
+    console.log(`Error: POST /setInformationModel.\n${err}`)
     res.status(500).send(err)
   }
 })
