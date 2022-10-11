@@ -4,6 +4,10 @@ const router = express.Router()
 const { firestore } = require('../firesbase/firebase-admin')
 const { verifyToken } = require('../middlewares/auth')
 
+router.get('/listInformationModel', verifyToken, async function (req, res, next) {
+  
+})
+
 router.get('/getInformationModel', verifyToken, async function (req, res, next) {
   try {
     let { imageName, imageTag } = req.query
@@ -29,7 +33,7 @@ router.get('/getInformationModel', verifyToken, async function (req, res, next) 
     } else {
       res.status(200).json({
         // message: 'success'
-        metadata: imageDoc.data()
+        informationModel: imageDoc.data()
       })
     }
   } catch (err) {
@@ -40,9 +44,9 @@ router.get('/getInformationModel', verifyToken, async function (req, res, next) 
 
 router.post('/setInformationModel', verifyToken, async function (req, res, next) {
   try {
-    let { imageName, imageTag, metadata, overwrite } = req.body
+    let { imageName, imageTag, informationModel, overwrite } = req.body
 
-    if (!imageName || !metadata) {
+    if (!imageName || !informationModel) {
       res.status(400).json({
         statusCode: 400,
         message: 'Error: Invalid parameter.'
@@ -62,17 +66,20 @@ router.post('/setInformationModel', verifyToken, async function (req, res, next)
         message: 'Error: Image source is not exist'
       })
     } else {
-      if (typeof metadata !== 'object') {
-        res.status(400).json({
-          statusCode: 400,
-          message: 'Error: metadata should be JSON format'
-        })
+      // if (typeof metadata !== 'object') {
+      //   res.status(400).json({
+      //     statusCode: 400,
+      //     message: 'Error: metadata should be JSON format'
+      //   })
 
-        return
-      }
+      //   return
+      // }
 
       try {
-        await imageRef.set(metadata, { merge: !overwrite })
+        await imageRef.set({
+          informationModel,
+          updatedAt: new Date().toISOString()
+        }, { merge: !overwrite })
 
         res.status(200).json({
           statusCode: 200
@@ -81,7 +88,7 @@ router.post('/setInformationModel', verifyToken, async function (req, res, next)
       } catch (err) {
         res.status(400).json({
           statusCode: 400,
-          message: 'Error: metadata should be JSON format'
+          message: 'Error: fail to set information model to firebase'
         })
       }
     }

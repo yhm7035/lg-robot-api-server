@@ -10,7 +10,7 @@ const workerRouter = require('./routes/workers')
 const containerRouter = require('./routes/container')
 const authRouter = require('./routes/auth')
 const imageRouter = require('./routes/image')
-const metadataRouter = require('./routes/metadata')
+const metadataRouter = require('./routes/informationModel')
 const ideRouter = require('./routes/ide')
 
 const app = express()
