@@ -20,7 +20,8 @@ router.get('/listInformationModel', verifyToken, async function (req, res, next)
     const classList = []
 
     classSnapshot.forEach(doc => {
-      classList.push(doc.id)
+      const imageName = doc.id
+      classList.push(imageName.replaceAll('#', '/'))
     })
 
     res.status(200).json({
@@ -34,7 +35,7 @@ router.get('/listInformationModel', verifyToken, async function (req, res, next)
 
 router.get('/getInformationModel', verifyToken, async function (req, res, next) {
   try {
-    let { imageName, imageTag } = req.query
+    const { imageName, imageTag = 'latest' } = req.query
 
     if (!imageName) {
       res.status(400).json({
@@ -44,8 +45,7 @@ router.get('/getInformationModel', verifyToken, async function (req, res, next) 
       return
     }
 
-    const replacedImageName = imageName.replaceAll('#', '/')
-    if (!imageTag) imageTag = 'latest'
+    const replacedImageName = imageName.replaceAll('/', '#')
 
     const imageRef = firestore.collection(`images/${replacedImageName}/${imageTag}`).doc('metadata')
     const imageDoc = await imageRef.get()
@@ -98,7 +98,7 @@ router.post('/setInformationModel', verifyToken, async function (req, res, next)
       return
     }
 
-    const replacedImageName = imageName.replaceAll('#', '/')
+    const replacedImageName = imageName.replaceAll('/', '#')
 
     const imageRef = firestore.collection(`images/${replacedImageName}/${imageTag}`).doc('metadata')
     const imageDoc = await imageRef.get()
