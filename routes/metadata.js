@@ -34,7 +34,7 @@ router.get('/listInformationModel', verifyToken, async function (req, res, next)
 
 router.get('/getInformationModel', verifyToken, async function (req, res, next) {
   try {
-    const { imageName, imageTag } = req.query
+    let { imageName, imageTag } = req.query
 
     if (!imageName) {
       res.status(400).json({
@@ -74,7 +74,7 @@ router.get('/getInformationModel', verifyToken, async function (req, res, next) 
 
 router.post('/setInformationModel', verifyToken, async function (req, res, next) {
   try {
-    const { imageName, imageTag, informationModel, overwrite, classification, moduleClass } = req.body
+    const { imageName, imageTag = 'latest', informationModel, overwrite = false, classification, moduleClass } = req.body
     const bodyData = { ...req.body }
 
     if (!imageName || !informationModel || !classification || !moduleClass) {
@@ -85,10 +85,10 @@ router.post('/setInformationModel', verifyToken, async function (req, res, next)
       return
     }
 
-    delete bodyData['imageName']
-    delete bodyData['informationModel']
-    delete bodyData['classification']
-    delete bodyData['moduleClass']
+    delete bodyData.imageName
+    delete bodyData.informationModel
+    delete bodyData.classification
+    delete bodyData.moduleClass
 
     if (!Array.isArray(classification)) {
       res.status(400).json({
@@ -99,8 +99,6 @@ router.post('/setInformationModel', verifyToken, async function (req, res, next)
     }
 
     const replacedImageName = imageName.replaceAll('#', '/')
-    if (!imageTag) imageTag = 'latest'
-    if (!overwrite) overwrite = false
 
     const imageRef = firestore.collection(`images/${replacedImageName}/${imageTag}`).doc('metadata')
     const imageDoc = await imageRef.get()
@@ -122,13 +120,13 @@ router.post('/setInformationModel', verifyToken, async function (req, res, next)
       classification.forEach(className => {
         if (!classArray.includes(className)) {
           addClassList.push(className)
-        }        
+        }
       })
 
       classArray.forEach(className => {
         if (!classification.includes(className)) {
           removeClassList.push(className)
-        }    
+        }
       })
 
       // remove class reference
@@ -145,7 +143,7 @@ router.post('/setInformationModel', verifyToken, async function (req, res, next)
           reference: `images/${replacedImageName}/common`,
           updatedAt: new Date().toISOString()
         })
-      })     
+      })
       await Promise.all(classAddPromises)
 
       try {

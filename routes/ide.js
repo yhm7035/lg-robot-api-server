@@ -21,7 +21,7 @@ router.post('/cluster/deploy', verifyToken, async function (req, res, next) {
     const tokenName = req.header('tokenName')
     const tokenRef = firestore.collection('tokens').doc(tokenName)
     const tokenDoc = await tokenRef.get()
-    
+
     if (!tokenDoc.exists) {
       await tokenRef.set({
         registerDate: new Date().toISOString()
@@ -30,7 +30,7 @@ router.post('/cluster/deploy', verifyToken, async function (req, res, next) {
 
     let namespaceId
     const tokenNamespaceRef = firestore.collection(`tokens/${tokenName}/namespace`).doc(`${clusterName}@${address}`)
-    const tokenNamespaceDoc = await tokenNamespaceRef.get()    
+    const tokenNamespaceDoc = await tokenNamespaceRef.get()
     if (!tokenNamespaceDoc.exists) {
       const namespaceResult = await _createNamespace(address, clusterName)
       namespaceId = namespaceResult ? namespaceResult.result.namespaceId : null
@@ -195,7 +195,6 @@ router.post('/machine/deploy', verifyToken, async function (req, res, next) {
     res.status(500).send(err)
   }
 })
-
 
 async function _createNamespace (address, clusterName) {
   try {
