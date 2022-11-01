@@ -125,7 +125,7 @@ router.post('/cluster/deploy', verifyToken, async function (req, res, next) {
 
 router.post('/machine/deploy', verifyToken, async function (req, res, next) {
   try {
-    const { address, imageName, isHost = false, ports, clusterName, command, envs } = req.body
+    const { address, imageName, isHost = false, ports, clusterName, command, envs, privileged = false } = req.body
 
     if (!address || !imageName || !ports || !clusterName) {
       console.log('Error: POST /machine/deploy. Invalid parameter.')
@@ -153,6 +153,7 @@ router.post('/machine/deploy', verifyToken, async function (req, res, next) {
       publishPorts: isHost ? null : portsJson,
       clusterName,
       targetAddress: address,
+      privileged,
       image: `asia-northeast1-docker.pkg.dev/lg-robot-dev/lg-ai-registry/${imageName}`
     }
 
