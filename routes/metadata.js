@@ -89,6 +89,7 @@ router.post('/setInformationModel', verifyToken, async function (req, res, next)
     delete bodyData.informationModel
     delete bodyData.classification
     delete bodyData.moduleClass
+    delete bodyData.overwrite
 
     if (!Array.isArray(classification)) {
       res.status(400).json({
