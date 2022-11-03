@@ -8,7 +8,7 @@ const { verifyToken } = require('../middlewares/auth')
 
 router.post('/cluster/deploy', verifyToken, async function (req, res, next) {
   try {
-    const { address, email, imageName, port, clusterName, command, envs } = req.body
+    const { address, email, imageName, port, clusterName, command, envs, exactPath = false } = req.body
 
     if (!address || !imageName || !port || !clusterName || !email) {
       res.status(400).json({
@@ -67,12 +67,13 @@ router.post('/cluster/deploy', verifyToken, async function (req, res, next) {
       return
     }
 
+    const imagePath = exactPath ? imageName : `asia-northeast1-docker.pkg.dev/lg-robot-dev/lg-ai-registry/${imageName}`
     const deployParams = {
       targetAddress: address,
       clusterName: clusterName,
       namespaceId: namespaceId,
       containerInfo: {
-        imageName: `asia-northeast1-docker.pkg.dev/lg-robot-dev/lg-ai-registry/${imageName}`,
+        imageName: imagePath,
         nodePoolName: targetPool,
         hwSpec: {
           cpu: 500,
@@ -179,7 +180,7 @@ router.post('/cluster/undeploy', verifyToken, async function (req, res, next) {
 
 router.post('/machine/deploy', verifyToken, async function (req, res, next) {
   try {
-    const { address, email, imageName, isHost = false, ports, clusterName, command, envs } = req.body
+    const { address, email, imageName, isHost = false, ports, clusterName, command, envs, exactPath = false } = req.body
 
     if (!address || !email || !imageName || !ports || !clusterName) {
       console.log('Error: POST /machine/deploy. Invalid parameter.')
@@ -200,12 +201,13 @@ router.post('/machine/deploy', verifyToken, async function (req, res, next) {
       })
     }
 
+    const imagePath = exactPath ? imageName : `asia-northeast1-docker.pkg.dev/lg-robot-dev/lg-ai-registry/${imageName}`
     const deployParams = {
       // port check
       publishPorts: isHost ? null : portsJson,
       clusterName,
       targetAddress: address,
-      image: `asia-northeast1-docker.pkg.dev/lg-robot-dev/lg-ai-registry/${imageName}`
+      image: imagePath
     }
 
     if (command) deployParams.command = [command]
