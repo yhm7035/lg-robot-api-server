@@ -1,0 +1,9 @@
+{
+  "root": true,
+  "extends": "./.eslintrc.json",
+  "rules": {
+    "@typescript-eslint/semi": "off",
+    "@typescript-eslint/no-extra-semi": "off",
+    "semi": "error"
+  }
+}
