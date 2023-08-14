@@ -2,13 +2,47 @@ const express = require('express')
 const router = express.Router()
 
 const { ainClient } = require('../ainetwork/ain-connect-sdk')
-const { auth, firestore } = require('../firesbase/firebase-admin')
+const { firestore } = require('../firesbase/firebase-admin')
 const { firebaseDB } = require('../firesbase/firebase')
 const { verifyToken } = require('../middlewares/auth')
 
+router.get('/cluster/pool', verifyToken, async function (req, res, next) {
+  try {
+    const { clusterName } = req.body
+
+    if (!clusterName) {
+      res.status(400).json({
+        statusCode: 400,
+        message: 'Error: Invalid parameter.'
+      })
+      return
+    }
+
+    const clusterList = await ainClient.getClusterList()
+    const targetCluster = clusterList ? clusterList.find(cluster => cluster.clusterName === clusterName) : null
+    const targetPool = (!!targetCluster && !!targetCluster.nodePool) ? Object.keys(targetCluster.nodePool)[0] : null
+
+    if (!targetPool) {
+      console.log('Error: GET /cluster/pool. Insufficient resouce in machine.')
+
+      res.status(200).json({
+        nodePool: []
+      })
+      return
+    }
+
+    res.status(200).json({
+      nodePool: Object.keys(targetCluster.nodePool)
+    })
+  } catch (err) {
+    console.log(`Error: GET /cluster/pool.\n${err}`)
+    res.status(500).send(err)
+  }
+})
+
 router.post('/cluster/deploy', verifyToken, async function (req, res, next) {
   try {
-    const { address, imageName, port, clusterName, command, envs } = req.body
+    const { address, imageName, port, clusterName, command, envs, nodePool } = req.body
 
     if (!address || !imageName || !port || !clusterName) {
       res.status(400).json({
@@ -55,7 +89,7 @@ router.post('/cluster/deploy', verifyToken, async function (req, res, next) {
 
     const clusterList = await ainClient.getClusterList()
     const targetCluster = clusterList ? clusterList.find(cluster => cluster.clusterName === clusterName) : null
-    const targetPool = (!!targetCluster && !!targetCluster.nodePool) ? Object.keys(targetCluster.nodePool)[0] : null
+    const targetPool = nodePool || (!!targetCluster && !!targetCluster.nodePool) ? Object.keys(targetCluster.nodePool)[0] : null
 
     if (!targetPool) {
       console.log('Error: POST /cluster/deploy. Insufficient resouce in machine.')
@@ -97,7 +131,6 @@ router.post('/cluster/deploy', verifyToken, async function (req, res, next) {
 
     const response = await ainClient.deploy(deployParams)
 
-    console.log(response.errMessage)
     if (response && response.errMessage) {
       res.status(400).json({
         statusCode: 400,
