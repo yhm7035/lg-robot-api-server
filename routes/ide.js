@@ -8,7 +8,7 @@ const { verifyToken } = require('../middlewares/auth')
 
 router.get('/cluster/pool', verifyToken, async function (req, res, next) {
   try {
-    const { clusterName } = req.body
+    const { clusterName } = req.query
 
     if (!clusterName) {
       res.status(400).json({
