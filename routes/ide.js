@@ -89,7 +89,7 @@ router.post('/cluster/deploy', verifyToken, async function (req, res, next) {
 
     const clusterList = await ainClient.getClusterList()
     const targetCluster = clusterList ? clusterList.find(cluster => cluster.clusterName === clusterName) : null
-    const targetPool = nodePool || (!!targetCluster && !!targetCluster.nodePool) ? Object.keys(targetCluster.nodePool)[0] : null
+    const targetPool = nodePool ? nodePool : (!!targetCluster && !!targetCluster.nodePool) ? Object.keys(targetCluster.nodePool)[0] : null
 
     if (!targetPool) {
       console.log('Error: POST /cluster/deploy. Insufficient resouce in machine.')
