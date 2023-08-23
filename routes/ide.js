@@ -66,22 +66,46 @@ router.post('/cluster/deploy', verifyToken, async function (req, res, next) {
     const tokenNamespaceRef = firestore.collection(`tokens/${tokenName}/namespace`).doc(`${clusterName}@${address}`)
     const tokenNamespaceDoc = await tokenNamespaceRef.get()
     if (!tokenNamespaceDoc.exists) {
-      const namespaceResult = await _createNamespace(address, clusterName)
-      namespaceId = namespaceResult ? namespaceResult.result.namespaceId : null
-
-      if (!namespaceId) {
-        console.log('Error: POST /cluster/deploy. Namespace creation failed.')
-        res.status(500).json({
-          statusCode: 500,
-          message: 'Error: POST /cluster/deploy. Namespace creation failed.'
+      if (tokenName === 'lg_bluepearl') {
+        const runResult = await ainClient.runCommand({
+          targetAddress: address,
+          clusterName,
+          cmd: 'create namespace lge-ebme'
         })
 
-        return
-      }
+        const resultMessage = runResult?.result?.stdout
 
-      await tokenNamespaceRef.set({
-        namespaceId
-      })
+        if (resultMessage) {
+          await tokenNamespaceRef.set({
+            namespaceId: 'lge-ebme'
+          })
+        } else {
+          console.log('Error: POST /cluster/deploy. Namespace creation failed.')
+          res.status(500).json({
+            statusCode: 500,
+            message: 'Error: POST /cluster/deploy. Namespace creation failed.'
+          })
+  
+          return
+        }
+      } else {
+        const namespaceResult = await _createNamespace(address, clusterName)
+        namespaceId = namespaceResult ? namespaceResult.result.namespaceId : null
+  
+        if (!namespaceId) {
+          console.log('Error: POST /cluster/deploy. Namespace creation failed.')
+          res.status(500).json({
+            statusCode: 500,
+            message: 'Error: POST /cluster/deploy. Namespace creation failed.'
+          })
+  
+          return
+        }
+  
+        await tokenNamespaceRef.set({
+          namespaceId
+        })
+      }
     } else {
       const tokenNamespaceData = await tokenNamespaceDoc.data()
       namespaceId = tokenNamespaceData.namespaceId
@@ -225,6 +249,65 @@ router.post('/machine/deploy', verifyToken, async function (req, res, next) {
     res.status(200).json(response)
   } catch (err) {
     console.log(`Error: POST /machine/deploy.\n${err}`)
+    res.status(500).send(err)
+  }
+})
+
+router.post('/cluster/undeploy', verifyToken, async function (req, res, next) {
+  try {
+    const { address, containerId, clusterName} = req.body
+
+    if (!address || !containerId || !clusterName) {
+      res.status(400).json({
+        statusCode: 400,
+        message: 'Error: Invalid parameter.'
+      })
+      return
+    }
+
+    const tokenName = req.header('tokenName')
+    const tokenRef = firestore.collection('tokens').doc(tokenName)
+    const tokenDoc = await tokenRef.get()
+
+    if (!tokenDoc.exists) {
+      res.status(400).json({
+        statusCode: 400,
+        message: 'Error: Invalid request.'
+      })
+      return
+    }
+
+    let namespaceId
+    const tokenNamespaceRef = firestore.collection(`tokens/${tokenName}/namespace`).doc(`${clusterName}@${address}`)
+    const tokenNamespaceDoc = await tokenNamespaceRef.get()
+    if (tokenNamespaceDoc.exists) {
+      const tokenNamespaceData = await tokenNamespaceDoc.data()
+      namespaceId = tokenNamespaceData.namespaceId
+    } else {
+      // TODO: handle user existence error
+      res.status(400).json({
+        statusCode: 400,
+        message: 'Error: Invalid request.'
+      })
+      return
+    }
+
+    const unDeployParams = {
+      targetAddress: address,
+      clusterName: clusterName,
+      namespaceId,
+      containerId
+    }
+
+    const response = await ainClient.undeploy(unDeployParams)
+
+    const ref = firebaseDB.ref(`api-server/${clusterName}@${address}/containers`)
+    const containerRef = ref.child(containerId)
+    containerRef.remove()
+
+    res.status(200).json(response)
+  } catch (err) {
+    console.log(`Error: POST /ide/undeploy.\n${err}`)
     res.status(500).send(err)
   }
 })
