@@ -85,23 +85,23 @@ router.post('/cluster/deploy', verifyToken, async function (req, res, next) {
             statusCode: 500,
             message: 'Error: POST /cluster/deploy. Namespace creation failed.'
           })
-  
+
           return
         }
       } else {
         const namespaceResult = await _createNamespace(address, clusterName)
         namespaceId = namespaceResult ? namespaceResult.result.namespaceId : null
-  
+
         if (!namespaceId) {
           console.log('Error: POST /cluster/deploy. Namespace creation failed.')
           res.status(500).json({
             statusCode: 500,
             message: 'Error: POST /cluster/deploy. Namespace creation failed.'
           })
-  
+
           return
         }
-  
+
         await tokenNamespaceRef.set({
           namespaceId
         })
@@ -255,7 +255,7 @@ router.post('/machine/deploy', verifyToken, async function (req, res, next) {
 
 router.post('/cluster/undeploy', verifyToken, async function (req, res, next) {
   try {
-    const { address, containerId, clusterName} = req.body
+    const { address, containerId, clusterName } = req.body
 
     if (!address || !containerId || !clusterName) {
       res.status(400).json({
