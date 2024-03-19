@@ -2,12 +2,252 @@ const express = require('express')
 const router = express.Router()
 
 const { mnemonicToAddr } = require('./auth.internal')
-const { syncDeploy } = require('./run.internal')
+const { syncDeploy, syncDelete } = require('./run.internal')
 
 const { ainClient } = require('../ainetwork/ain-connect-sdk')
 const { auth, firestore } = require('../firesbase/firebase-admin')
 const { firebaseDB } = require('../firesbase/firebase')
 const { verifyToken } = require('../middlewares/auth')
+
+router.post('/rollback', verifyToken, async function (req, res, next) {
+  try {
+    const { address, containerId, clusterName } = req.body
+
+    if (!address || !containerId || !clusterName) {
+      res.status(400).json({
+        statusCode: 400,
+        message: 'Error: Invalid parameter.'
+      })
+      return
+    }
+
+    const containerRef = firebaseDB.ref(`api-server/${clusterName}@${address}/containers/${containerId}`)
+    const containerSnapshot = await containerRef.once('value')
+    const containerValue = await containerSnapshot.val()
+
+    if (!containerValue) {
+      res.status(400).json({
+        statusCode: 400,
+        message: 'Error: Invalid container information.'
+      })
+      return
+    }
+
+    const rollbackImage = containerValue.rollback
+    if (!rollbackImage) {
+      res.status(400).json({
+        statusCode: 400,
+        message: 'Error: Rollback image is not set.'
+      })
+      return
+    }
+
+    const prefix = 'asia-northeast1-docker.pkg.dev/lg-robot-dev/lg-ai-registry/'
+    const namespace = containerValue.info.namespaceId
+
+    const runResult = await ainClient.runCommand({
+      targetAddress: address,
+      clusterName,
+      cmd: `set image deployment/${containerId} ${containerId}=${prefix}${rollbackImage} -n ${namespace}`
+    })
+
+    const resultMessage = runResult?.result?.stdout
+
+    // update api DB
+    const currInfo = containerValue.info
+    if (resultMessage) {
+      await containerRef.update({
+        info: {
+          endpoint: currInfo.endpoint,
+          image: rollbackImage,
+          namespaceId: currInfo.namespaceId
+        }
+      })
+    }
+
+    // sync handling
+    if (containerValue.targets && containerValue.params) {
+      const targets = containerValue.targets
+      const params = containerValue.params
+
+      await syncDelete(targets)
+      const result = await syncDeploy(rollbackImage, params.port, targets)
+
+      if (result.length > 0) {
+        await containerRef.update({
+          targets: result
+        })
+      }
+    }
+
+    // send response
+    res.status(200).json({
+      status: 'success',
+      image: rollbackImage,
+      result: resultMessage
+    })
+  } catch (err) {
+    console.log(`Error: POST /rollback.\n${err}`)
+    res.status(500).send(err)
+  }
+})
+
+router.post('/cluster/setRollback', verifyToken, async function (req, res, next) {
+  try {
+    const { address, email, containerId, clusterName, rollbackImage } = req.body
+
+    if (!address || !email || !containerId || !clusterName || !rollbackImage) {
+      res.status(400).json({
+        statusCode: 400,
+        message: 'Error: Invalid parameter.'
+      })
+      return
+    }
+
+    const containerRef = firebaseDB.ref(`api-server/${clusterName}@${address}/containers/${containerId}`)
+    const containerSnapshot = await containerRef.once('value')
+    const containerValue = await containerSnapshot.val()
+
+    if (!containerValue) {
+      res.status(400).json({
+        statusCode: 400,
+        message: 'Error: Invalid container information.'
+      })
+      return
+    }
+
+    // check right to set rollback
+    if (!!containerValue.email && !containerValue.email.includes(email)) {
+      res.status(400).json({
+        statusCode: 400,
+        message: 'Error: permission to set sync is required.'
+      })
+      return
+    }
+
+    await containerRef.update({
+      rollback: rollbackImage
+    })
+
+    // send response
+    res.status(200).json({
+      status: 'success'
+    })
+  } catch (err) {
+    console.log(`Error: POST /cluster/setRollback.\n${err}`)
+    res.status(500).send(err)
+  }
+})
+
+router.post('/cluster/setAutoscaler', verifyToken, async function (req, res, next) {
+  try {
+    const { address, email, containerId, clusterName, cpuPercent, min, max } = req.body
+
+    if (!address || !email || !containerId || !clusterName || !cpuPercent || !min || !max) {
+      res.status(400).json({
+        statusCode: 400,
+        message: 'Error: Invalid parameter.'
+      })
+      return
+    }
+
+    const containerRef = firebaseDB.ref(`api-server/${clusterName}@${address}/containers/${containerId}`)
+    const containerSnapshot = await containerRef.once('value')
+    const containerValue = await containerSnapshot.val()
+
+    if (!containerValue) {
+      res.status(400).json({
+        statusCode: 400,
+        message: 'Error: Invalid container information.'
+      })
+      return
+    }
+
+    // check right to set autoscaler
+    if (!!containerValue.email && !containerValue.email.includes(email)) {
+      res.status(400).json({
+        statusCode: 400,
+        message: 'Error: permission to set sync is required.'
+      })
+      return
+    }
+
+    // get namespace from container information
+    const namespace = containerValue.info.namespaceId
+
+    const runResult = await ainClient.runCommand({
+      targetAddress: address,
+      clusterName,
+      cmd: `autoscale deployment ${containerId} --cpu-percent=${cpuPercent} --min=${min} --max=${max} --namespace=${namespace}`
+    })
+
+    const resultMessage = runResult?.result?.stdout
+
+    // send response
+    res.status(200).json({
+      status: 'success',
+      result: resultMessage
+    })
+  } catch (err) {
+    console.log(`Error: POST /cluster/setAutoscaler.\n${err}`)
+    res.status(500).send(err)
+  }
+})
+
+router.post('/cluster/deleteAutoscaler', verifyToken, async function (req, res, next) {
+  try {
+    const { address, email, containerId, clusterName } = req.body
+
+    if (!address || !email || !containerId || !clusterName) {
+      res.status(400).json({
+        statusCode: 400,
+        message: 'Error: Invalid parameter.'
+      })
+      return
+    }
+
+    const containerRef = firebaseDB.ref(`api-server/${clusterName}@${address}/containers/${containerId}`)
+    const containerSnapshot = await containerRef.once('value')
+    const containerValue = await containerSnapshot.val()
+
+    if (!containerValue) {
+      res.status(400).json({
+        statusCode: 400,
+        message: 'Error: Invalid container information.'
+      })
+      return
+    }
+
+    // check right to set autoscaler
+    if (!!containerValue.email && !containerValue.email.includes(email)) {
+      res.status(400).json({
+        statusCode: 400,
+        message: 'Error: permission to set sync is required.'
+      })
+      return
+    }
+
+    // get namespace from container information
+    const namespace = containerValue.info.namespaceId
+
+    const runResult = await ainClient.runCommand({
+      targetAddress: address,
+      clusterName,
+      cmd: `delete hpa ${containerId} -n ${namespace}`
+    })
+
+    const resultMessage = runResult?.result?.stdout
+
+    // send response
+    res.status(200).json({
+      status: 'success',
+      result: resultMessage
+    })
+  } catch (err) {
+    console.log(`Error: POST /cluster/deleteAutoscaler.\n${err}`)
+    res.status(500).send(err)
+  }
+})
 
 router.post('/cluster/setSync', verifyToken, async function (req, res, next) {
   try {
@@ -21,7 +261,7 @@ router.post('/cluster/setSync', verifyToken, async function (req, res, next) {
       return
     }
 
-    if (!Array.isArray(targets) || targets.length <= 0) {
+    if (!Array.isArray(targets)) {
       res.status(400).json({
         statusCode: 400,
         message: 'Error: Invalid target input.'
@@ -41,7 +281,20 @@ router.post('/cluster/setSync', verifyToken, async function (req, res, next) {
       return
     }
 
-    // check rigth to set sync
+    // delete target list
+    if (targets.length <= 0) {
+      const targetRef = containerRef.child('targets')
+      await targetRef.remove()
+
+      res.status(200).json({
+        status: 'success',
+        message: 'targets are deleted'
+      })
+
+      return
+    }
+
+    // check right to set sync
     if (!!containerValue.email && !containerValue.email.includes(email)) {
       res.status(400).json({
         statusCode: 400,
@@ -117,7 +370,7 @@ router.post('/cluster/updateDeploy', verifyToken, async function (req, res, next
       return
     }
 
-    // check rigth to update
+    // check right to update
     if (!!containerValue.email && !containerValue.email.includes(email)) {
       res.status(400).json({
         statusCode: 400,
@@ -148,6 +401,22 @@ router.post('/cluster/updateDeploy', verifyToken, async function (req, res, next
       })
     }
 
+    // sync handling
+    if (containerValue.targets && containerValue.params) {
+      const targets = containerValue.targets
+      const params = containerValue.params
+
+      await syncDelete(targets)
+      const result = await syncDeploy(image, params.port, targets)
+
+      if (result.length > 0) {
+        await containerRef.update({
+          targets: result
+        })
+      }
+    }
+
+    // send response
     res.status(200).json({
       status: 'success',
       result: resultMessage

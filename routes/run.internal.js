@@ -152,10 +152,12 @@ async function machineDeploy (address, clusterName, imageName, ports, isHost, pr
 
 async function syncDeploy (imageName, ports, targets) {
   const targetPromises = targets.map((target) => {
-    return machineDeploy(target.address, target.clusterName, imageName, ports, false, false)
+    return machineDeploy(target.address, target.clusterName, imageName, ports, true, false)
+    // return machineDeploy(target.address, target.clusterName, imageName, ports, false, false)
   })
 
   const results = await Promise.all(targetPromises)
+
   const targetResult = results.map(data => {
     if (data.result.status === 'success') {
       return {
@@ -167,6 +169,34 @@ async function syncDeploy (imageName, ports, targets) {
   })
 
   return targetResult
+}
+
+async function syncDelete (targets) {
+  const targetPromises = targets.map((target) => {
+    return _machineUndeploy(target.address, target.clusterName, target.containerId)
+  })
+
+  const deletedResult = await Promise.all(targetPromises)
+}
+
+async function _machineUndeploy (address, clusterName, containerId) {
+  try {
+    const unDeployParams = {
+      clusterName,
+      targetAddress: address,
+      containerId
+    }
+
+    await ainClient.undeployForDocker(unDeployParams)
+
+    const ref = firebaseDB.ref(`api-server/${clusterName}@${address}/containers`)
+    const containerRef = ref.child(containerId)
+    containerRef.remove()
+
+    return true
+  } catch (_) {
+    return false
+  }
 }
 
 async function _createNamespace (address, clusterName) {
@@ -186,5 +216,6 @@ async function _createNamespace (address, clusterName) {
 module.exports = {
   clusterDeploy,
   machineDeploy,
-  syncDeploy
+  syncDeploy,
+  syncDelete
 }

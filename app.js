@@ -12,6 +12,7 @@ const authRouter = require('./routes/auth')
 const imageRouter = require('./routes/image')
 const metadataRouter = require('./routes/metadata')
 const ideRouter = require('./routes/ide')
+const failureRouter = require('./routes/failure')
 
 const { refreshWorkerList } = require('./routes/workers.internal')
 
@@ -35,6 +36,7 @@ app.use('/auth', authRouter)
 app.use('/image', imageRouter)
 app.use('/informationModel', metadataRouter)
 app.use('/ide', ideRouter)
+app.use('/failure', failureRouter)
 
 // catch 404 and forward to error handler
 app.use(function(req, res, next) {
