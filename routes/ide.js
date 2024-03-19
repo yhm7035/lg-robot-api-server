@@ -1,6 +1,8 @@
 const express = require('express')
 const router = express.Router()
 
+const { clusterDeploy, machineDeploy } = require('./run.internal')
+
 const { ainClient } = require('../ainetwork/ain-connect-sdk')
 const { firestore } = require('../firesbase/firebase-admin')
 const { firebaseDB } = require('../firesbase/firebase')
@@ -40,6 +42,61 @@ router.get('/cluster/pool', verifyToken, async function (req, res, next) {
   }
 })
 
+router.post('/multiDeploy', verifyToken, async function (req, res, next) {
+  try {
+    const { targets, imageName, port, isHost = false, privileged = false } = req.body
+
+    if (!targets || !imageName || !port) {
+      res.status(400).json({
+        statusCode: 400,
+        message: 'Error: Invalid parameter.'
+      })
+      return
+    }
+
+    if (!Array.isArray(targets) || targets.length <= 0) {
+      res.status(400).json({
+        statusCode: 400,
+        message: 'Error: Invalid target input.'
+      })
+      return
+    }
+
+    const tokenName = req.header('tokenName')
+    const tokenRef = firestore.collection('tokens').doc(tokenName)
+    const tokenDoc = await tokenRef.get()
+
+    if (!tokenDoc.exists) {
+      await tokenRef.set({
+        registerDate: new Date().toISOString()
+      })
+    }
+
+    const targetResult = targets.map((target) => {
+      if (target.platform === 'kubernetes') return clusterDeploy(target.address, target.clusterName, imageName, port, tokenName)
+      else if (target.platform === 'docker') return machineDeploy(target.address, target.clusterName, imageName, port, isHost, privileged)
+      else {
+        return {
+          address: target.address,
+          clusterName: target.clusterName,
+          result: {
+            status: 'fail',
+            message: 'Invalid platform.'
+          }
+        }
+      }
+    })
+
+    const result = await Promise.all(targetResult)
+    res.status(200).json({
+      result
+    })
+  } catch (err) {
+    console.log(`Error: POST /cluster/multiDeploy.\n${err}`)
+    res.status(500).send(err)
+  }
+})
+
 router.post('/cluster/deploy', verifyToken, async function (req, res, next) {
   try {
     const { address, imageName, port, clusterName, command, envs, nodePool } = req.body
@@ -62,6 +119,7 @@ router.post('/cluster/deploy', verifyToken, async function (req, res, next) {
       })
     }
 
+    // create namespace
     let namespaceId
     const tokenNamespaceRef = firestore.collection(`tokens/${tokenName}/namespace`).doc(`${clusterName}@${address}`)
     const tokenNamespaceDoc = await tokenNamespaceRef.get()
@@ -111,6 +169,7 @@ router.post('/cluster/deploy', verifyToken, async function (req, res, next) {
       namespaceId = tokenNamespaceData.namespaceId
     }
 
+    // get node pool
     const clusterList = await ainClient.getClusterList()
     const targetCluster = clusterList ? clusterList.find(cluster => cluster.clusterName === clusterName) : null
     const targetPool = nodePool ? nodePool : (!!targetCluster && !!targetCluster.nodePool) ? Object.keys(targetCluster.nodePool)[0] : null
@@ -124,6 +183,7 @@ router.post('/cluster/deploy', verifyToken, async function (req, res, next) {
       return
     }
 
+    // make deployment
     const deployParams = {
       targetAddress: address,
       clusterName: clusterName,
@@ -169,7 +229,12 @@ router.post('/cluster/deploy', verifyToken, async function (req, res, next) {
     await containerRef.set({
       info: {
         image: imageName,
-        endpoint: response.result.endpoint
+        endpoint: response.result.endpoint,
+        namespaceId,
+      },
+      params: {
+        imageName,
+        port
       }
     })
 
@@ -325,16 +390,5 @@ async function _createNamespace (address, clusterName) {
     return null
   }
 }
-
-// async function _deleteNamespace( address, clusterName, namespaceId ) {
-//   const namespaceParams = {
-//     targetAddress: address,
-//     clusterName,
-//     namespaceId
-//   }
-
-//   const response = await ainClient.deleteNamespace(namespaceParams)
-//   return response
-// }
 
 module.exports = router

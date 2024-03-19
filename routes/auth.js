@@ -1,8 +1,10 @@
 const express = require('express')
 const router = express.Router()
 
+const { createSessionCookie, generateToken, mnemonicToAddr } = require('./auth.internal')
+
 const { auth, firestore } = require('../firesbase/firebase-admin')
-const { createSessionCookie, generateToken } = require('./auth.internal')
+const { firebaseDB } = require('../firesbase/firebase')
 const { loginBodyValidator } = require('../middlewares/paramsValidator')
 const { verifyToken } = require('../middlewares/auth')
 
@@ -92,6 +94,41 @@ router.post('/login', [verifyToken, loginBodyValidator], async function (req, re
       })
   } catch (err) {
     console.log(`Error: POST /login.\n${err}`)
+    res.status(500).send(err)
+  }
+})
+
+router.post('/intelligence/accessRights', verifyToken, async function (req, res) {
+  try {
+    const { mnemonic, address, containerId, clusterName, email } = req.body
+    const derivedAddr = await mnemonicToAddr(mnemonic)
+
+    if (derivedAddr === address) {
+      // access control
+      const emailRef = firebaseDB.ref(`api-server/${clusterName}@${address}/containers/${containerId}`)
+
+      const emailSnapshot = await emailRef.once('value')
+      const emailValue = await emailSnapshot.val()
+
+      const mailArray = emailValue.email || []
+      mailArray.push(email)
+
+      await emailRef.update({
+        email: mailArray
+      })
+
+      res.status(200).json({
+        status: 'success',
+      })
+    } else {
+      res.status(400).json({
+        statusCode: 400,
+        message: 'Error: Invalid mnemonic.'
+      })
+      return
+    }
+  } catch (err) {
+    console.log(`Error: POST /intelligence/accessRights.\n${err}`)
     res.status(500).send(err)
   }
 })

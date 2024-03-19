@@ -7,9 +7,9 @@ const { verifyToken } = require('../middlewares/auth')
 
 router.get('/cluster/listContatinerInfo', verifyToken, async function (req, res) {
   try {
-    const { address, clusterName } = req.query
+    const { address, clusterName, email } = req.query
 
-    if (!address || !clusterName) {
+    if (!address || !clusterName || !email) {
       res.status(400).json({
         statusCode: 400,
         message: 'Error: Invalid parameter.'
@@ -42,8 +42,11 @@ router.get('/cluster/listContatinerInfo', verifyToken, async function (req, res)
         containerId: key
       }
 
-      const result = await ainClient.getContainerStatus(params)
+      // show this container to allowed user only
+      const mailArray = containerList[key].email || false
+      if (mailArray && !mailArray.includes(email)) continue
 
+      const result = await ainClient.getContainerStatus(params)
       if (!result || !result.containerStatus || !containerList[key].info.image || !containerList[key].info.endpoint) continue
 
       const portKeys = await Object.keys(containerList[key].info.endpoint)
@@ -58,7 +61,13 @@ router.get('/cluster/listContatinerInfo', verifyToken, async function (req, res)
       })
     }
 
-    res.status(200).json({ list: containerInfoList })
+    if (containerInfoList.length === 0) {
+      res.status(404).json({
+        statusCode: 404,
+        message: 'Error: No container.'
+      })
+      return
+    } else res.status(200).json({ list: containerInfoList })
   } catch (err) {
     console.log(`Error: POST /cluster/listContatinerInfo.\n${err}`)
     res.status(500).send(err)
