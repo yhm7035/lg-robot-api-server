@@ -231,6 +231,7 @@ router.post('/cluster/deploy', verifyToken, async function (req, res, next) {
         image: imageName,
         endpoint: response.result.endpoint,
         namespaceId,
+        port
       },
       params: {
         imageName,

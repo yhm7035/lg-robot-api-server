@@ -33,8 +33,8 @@ router.post('/rollback', verifyToken, async function (req, res, next) {
       return
     }
 
-    const rollbackImage = containerValue.rollback
-    if (!rollbackImage) {
+    const { image, port } = containerValue.rollback
+    if (!image || !port) {
       res.status(400).json({
         statusCode: 400,
         message: 'Error: Rollback image is not set.'
@@ -48,30 +48,45 @@ router.post('/rollback', verifyToken, async function (req, res, next) {
     const runResult = await ainClient.runCommand({
       targetAddress: address,
       clusterName,
-      cmd: `set image deployment/${containerId} ${containerId}=${prefix}${rollbackImage} -n ${namespace}`
+      cmd: `set image deployment/${containerId} ${containerId}=${prefix}${image} -n ${namespace}`
     })
 
     const resultMessage = runResult?.result?.stdout
 
-    // update api DB
     const currInfo = containerValue.info
+    let nextPort, portMessage
+    // change port
+    // TODO: have to handle whole array
+    if (currInfo.port[0] !== port[0]) {
+      const portResult = await ainClient.runCommand({
+        targetAddress: address,
+        clusterName,
+        cmd: `patch svc ${containerId} -n ${namespace} -p '{ "spec": { "ports": [{ "name": "http-tcp${port[0]}", "protocol": "TCP", "port": ${containerValue.params.port[0]},"targetPort": ${port[0]} }] } }'`
+      })
+      portMessage = portResult?.result?.stdout
+      nextPort = port
+    } else {
+      nextPort = currInfo.port
+    }
+
+    // update api DB
     if (resultMessage) {
       await containerRef.update({
         info: {
           endpoint: currInfo.endpoint,
-          image: rollbackImage,
-          namespaceId: currInfo.namespaceId
+          image: image,
+          namespaceId: currInfo.namespaceId,
+          port: nextPort
         }
       })
     }
 
     // sync handling
-    if (containerValue.targets && containerValue.params) {
+    if (containerValue.targets) {
       const targets = containerValue.targets
-      const params = containerValue.params
 
       await syncDelete(targets)
-      const result = await syncDeploy(rollbackImage, params.port, targets)
+      const result = await syncDeploy(image, port, targets)
 
       if (result.length > 0) {
         await containerRef.update({
@@ -83,8 +98,11 @@ router.post('/rollback', verifyToken, async function (req, res, next) {
     // send response
     res.status(200).json({
       status: 'success',
-      image: rollbackImage,
-      result: resultMessage
+      image,
+      result: {
+        deploy: resultMessage,
+        port: portMessage
+      }
     })
   } catch (err) {
     console.log(`Error: POST /rollback.\n${err}`)
@@ -94,9 +112,9 @@ router.post('/rollback', verifyToken, async function (req, res, next) {
 
 router.post('/cluster/setRollback', verifyToken, async function (req, res, next) {
   try {
-    const { address, email, containerId, clusterName, rollbackImage } = req.body
+    const { address, email, containerId, clusterName, rollbackImage, rollbackPort } = req.body
 
-    if (!address || !email || !containerId || !clusterName || !rollbackImage) {
+    if (!address || !email || !containerId || !clusterName || !rollbackImage || !rollbackPort) {
       res.status(400).json({
         statusCode: 400,
         message: 'Error: Invalid parameter.'
@@ -126,7 +144,10 @@ router.post('/cluster/setRollback', verifyToken, async function (req, res, next)
     }
 
     await containerRef.update({
-      rollback: rollbackImage
+      rollback: {
+        image: rollbackImage,
+        port: rollbackPort
+      }
     })
 
     // send response
@@ -323,9 +344,9 @@ router.post('/cluster/setSync', verifyToken, async function (req, res, next) {
       }
     }
 
-    if (!!containerValue.params && targetList.length > 0) {
-      const { imageName, port } = containerValue.params
-      const result = await syncDeploy(imageName, port, targetList)
+    if (!!containerValue.info && targetList.length > 0) {
+      const { image, port } = containerValue.info
+      const result = await syncDeploy(image, port, targetList)
 
       if (result.length > 0) {
         await containerRef.update({
@@ -345,7 +366,7 @@ router.post('/cluster/setSync', verifyToken, async function (req, res, next) {
 
 router.post('/cluster/updateDeploy', verifyToken, async function (req, res, next) {
   try {
-    const { address, email, containerId, clusterName, imageName } = req.body
+    const { address, email, containerId, clusterName, imageName, port } = req.body
 
     if (!address || !email || !containerId || !clusterName) {
       res.status(400).json({
@@ -379,35 +400,56 @@ router.post('/cluster/updateDeploy', verifyToken, async function (req, res, next
       return
     }
 
-    const namespace = containerValue.info.namespaceId
+    // check target cluster is Kubernetes
+    const clusterList = await ainClient.getClusterList()
+    const targetCluster = clusterList.find(cluster => cluster.clusterName === clusterName)
+    if (targetCluster.isDocker === true) {
+      res.status(400).json({
+        statusCode: 400,
+        message: 'Error: Only kubernetes plaform is available.'
+      })
+      return
+    }
 
+    const namespace = containerValue.info.namespaceId
     const runResult = await ainClient.runCommand({
       targetAddress: address,
       clusterName,
       cmd: `set image deployment/${containerId} ${containerId}=${prefix}${image} -n ${namespace}`
     })
-
     const resultMessage = runResult?.result?.stdout
 
     // update api DB
     const currInfo = containerValue.info
+    const nextPort = port ? port : currInfo.port
     if (resultMessage) {
       await containerRef.update({
         info: {
           endpoint: currInfo.endpoint,
           image: image,
-          namespaceId: currInfo.namespaceId
+          namespaceId: currInfo.namespaceId,
+          port: nextPort
         }
       })
     }
 
+    // changing target port of service
+    let portMessage
+    if (port) {
+      const portResult = await ainClient.runCommand({
+        targetAddress: address,
+        clusterName,
+        cmd: `patch svc ${containerId} -n ${namespace} -p '{ "spec": { "ports": [{ "name": "http-tcp${nextPort[0]}", "protocol": "TCP", "port": ${containerValue.params.port[0]},"targetPort": ${nextPort[0]} }] } }'`
+      })
+      portMessage = portResult?.result?.stdout
+    }
+
     // sync handling
-    if (containerValue.targets && containerValue.params) {
+    if (containerValue.targets) {
       const targets = containerValue.targets
-      const params = containerValue.params
 
       await syncDelete(targets)
-      const result = await syncDeploy(image, params.port, targets)
+      const result = await syncDeploy(image, nextPort, targets)
 
       if (result.length > 0) {
         await containerRef.update({
@@ -419,7 +461,10 @@ router.post('/cluster/updateDeploy', verifyToken, async function (req, res, next
     // send response
     res.status(200).json({
       status: 'success',
-      result: resultMessage
+      result: {
+        deploy: resultMessage,
+        port: portMessage
+      }
     })
   } catch (err) {
     console.log(`Error: POST /cluster/updateDeploy.\n${err}`)
@@ -540,6 +585,7 @@ router.post('/cluster/deploy', verifyToken, async function (req, res, next) {
         image: imageName,
         endpoint: response.result.endpoint,
         namespaceId,
+        port
       },
       params: {
         imageName,

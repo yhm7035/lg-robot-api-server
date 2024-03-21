@@ -84,6 +84,7 @@ async function clusterDeploy (address, clusterName, imageName, port, tokenName) 
       image: imageName,
       endpoint: response.result.endpoint,
       namespaceId,
+      port
     },
     params: {
       imageName,
